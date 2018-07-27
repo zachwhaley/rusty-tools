@@ -1,0 +1,10 @@
+[package]
+name = "rusty-tools"
+version = "0.0.0"
+
+[dependencies]
+libc = "*"
+
+[[bin]]
+name = "page"
+path = "src/page.rs"
