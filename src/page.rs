@@ -4,7 +4,6 @@ use std::env;
 use std::mem;
 use std::fs::File;
 use std::io::Read;
-use std::io::Write;
 use std::io::BufRead;
 use std::io::BufReader;
 
@@ -14,7 +13,7 @@ fn main() {
     let mut save: libc::termios = unsafe { mem::zeroed() };
     unsafe { libc::tcgetattr(libc::STDIN_FILENO, &mut save); }
     let mut term = libc::termios {..save};
-    term.c_lflag &= !libc::ECHO;
+    term.c_lflag &= !(libc::ICANON | libc::ECHO);
     unsafe { libc::tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, &term); }
 
     let winsz: libc::winsize = unsafe { mem::zeroed() };
@@ -34,6 +33,8 @@ fn main() {
                 }
             }
         }
+        let mut c = [0;1];
+        std::io::stdin().read_exact(&mut c).unwrap();
     }
 
     unsafe { libc::tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, &save); }
