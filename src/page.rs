@@ -1,14 +1,14 @@
 extern crate libc;
 
 use std::env;
-use std::mem;
 use std::fs::File;
+use std::io;
 use std::io::BufReader;
 use std::io::prelude::*;
+use std::mem;
 use std::process::exit;
-use std::io::Error;
 
-fn pagefile(filename: &String, pagesize: u16) -> Result<(), Error> {
+fn pagefile(filename: &String, pagesize: u16) -> io::Result<()> {
     let file = File::open(filename)?;
 
     let mut buf = BufReader::new(file);
