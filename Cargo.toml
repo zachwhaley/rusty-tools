@@ -8,3 +8,7 @@ libc = "*"
 [[bin]]
 name = "page"
 path = "src/page.rs"
+
+[[bin]]
+name = "find"
+path = "src/find.rs"
