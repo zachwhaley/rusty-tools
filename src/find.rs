@@ -1,25 +1,25 @@
 use std::env;
-use std::fs;
-use std::io;
+use std::io::Result;
 use std::collections::VecDeque;
-use std::path::Path;
+use std::path::PathBuf;
+use std::ffi::OsString;
 use std::process::exit;
 
-fn find(query: &String, path: &String) -> Result<Vec<String>> {
-    let mut result: Vec<String>;
-    let mut dirs = VecDeque::from(vec![Path::new(path)]);
+fn find(query: &String, start: &OsString) -> Result<Vec<PathBuf>> {
+    let first = PathBuf::from(start);
+    let mut dirs = VecDeque::from(vec![first]);
+    let mut result = Vec::new();
 
     while let Some(dir) = dirs.pop_front() {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-
-            if let Some(name) = entry.file_name() {
-                if name.to_str() == Some(query) {
-                    result.push_back(entry);
+        for entry in dir.read_dir()? {
+            let path = entry?.path();
+            if let Some(name) = path.file_name() {
+                if query.is_empty() || query.as_str() == name {
+                    result.push(path.clone());
                 }
             }
-            if entry.is_dir() {
-                dirs.push_back(entry);
+            if path.is_dir() {
+                dirs.push_back(path);
             }
         }
     }
@@ -29,14 +29,24 @@ fn find(query: &String, path: &String) -> Result<Vec<String>> {
 fn main() {
     let query = match env::args().nth(1) {
         Some(query) => query,
-        None => "",
+        None => String::new(),
     };
-    let path = match env::args().nth(2) {
-        Some(path) => path,
-        None => ".",
-    }
+    let start = match env::args().nth(2) {
+        Some(start) => OsString::from(start),
+        None => OsString::from("."),
+    };
 
-    for result in find(&query, &path) {
-        println!("{}" result);
-    }
+    match find(&query, &start) {
+        Ok(paths) => {
+            for path in paths {
+                if let Some(p) = path.to_str() {
+                    println!("{}", p);
+                }
+            }
+        },
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            exit(1);
+        },
+    };
 }
