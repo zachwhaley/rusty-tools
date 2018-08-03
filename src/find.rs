@@ -5,7 +5,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::exit;
 
-fn find(start: &OsString, query: &String) -> io::Result<Vec<PathBuf>> {
+fn find(query: &String, start: &OsString) -> io::Result<Vec<PathBuf>> {
     let start = PathBuf::from(start);
     let mut dirs = VecDeque::from(vec![start]);
     let mut result = Vec::new();
@@ -27,16 +27,16 @@ fn find(start: &OsString, query: &String) -> io::Result<Vec<PathBuf>> {
 }
 
 fn main() {
-    let start = match env::args().nth(1) {
-        Some(start) => OsString::from(start),
-        None => OsString::from("."),
-    };
-    let query = match env::args().nth(2) {
+    let query = match env::args().nth(1) {
         Some(query) => query,
         None => String::new(),
     };
+    let start = match env::args().nth(2) {
+        Some(start) => OsString::from(start),
+        None => OsString::from("."),
+    };
 
-    match find(&start, &query) {
+    match find(&query, &start) {
         Ok(paths) => {
             for path in paths {
                 if let Some(p) = path.to_str() {
