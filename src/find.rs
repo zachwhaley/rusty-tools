@@ -1,11 +1,9 @@
-use std::env;
-use std::io;
 use std::collections::VecDeque;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
+use std::io;
 use std::path::PathBuf;
-use std::process::exit;
 
-fn find(query: &String, start: &OsString) -> io::Result<Vec<PathBuf>> {
+fn find(query: &str, start: &OsStr) -> io::Result<Vec<PathBuf>> {
     let start = PathBuf::from(start);
     let mut dirs = VecDeque::from(vec![start]);
     let mut result = Vec::new();
@@ -17,7 +15,7 @@ fn find(query: &String, start: &OsString) -> io::Result<Vec<PathBuf>> {
                 dirs.push_back(path.clone());
             }
             if let Some(name) = path.file_name() {
-                if query.is_empty() || query.as_str() == name {
+                if query.is_empty() || query == name {
                     result.push(path.clone());
                 }
             }
@@ -26,27 +24,15 @@ fn find(query: &String, start: &OsString) -> io::Result<Vec<PathBuf>> {
     Ok(result)
 }
 
-fn main() {
-    let query = match env::args().nth(1) {
-        Some(query) => query,
-        None => String::new(),
-    };
-    let start = match env::args().nth(2) {
-        Some(start) => OsString::from(start),
-        None => OsString::from("."),
-    };
+fn main() -> io::Result<()> {
+    let mut args = std::env::args().skip(1);
+    let query = args.next().unwrap_or(String::new());
+    let start = args.next().map(OsString::from).unwrap_or(OsString::from("."));
 
-    match find(&query, &start) {
-        Ok(paths) => {
-            for path in paths {
-                if let Some(p) = path.to_str() {
-                    println!("{}", p);
-                }
-            }
-        },
-        Err(err) => {
-            eprintln!("Error: {}", err);
-            exit(1);
-        },
-    };
+    for path in find(&query, &start)? {
+        if let Some(p) = path.to_str() {
+            println!("{}", p);
+        }
+    }
+    Ok(())
 }
