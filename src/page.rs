@@ -1,7 +1,5 @@
 extern crate libc;
 extern crate termios;
-#[macro_use(defer)]
-extern crate scopeguard;
 
 use std::fs::File;
 use std::io;
@@ -11,8 +9,21 @@ use std::mem;
 
 use termios::*;
 
-fn pagefile(filename: &str, pagesize: u16) -> io::Result<()> {
+fn window_size() -> io::Result<u16> {
+    let winsz: libc::winsize;
+    let rc = unsafe {
+        winsz = mem::zeroed();
+        libc::ioctl(libc::STDOUT_FILENO, libc::TIOCGWINSZ, &winsz)
+    };
+    match rc {
+        0 => Ok(winsz.ws_row),
+        _ => Err(io::Error::last_os_error()),
+    }
+}
+
+fn pagefile(filename: &str) -> io::Result<()> {
     let file = File::open(filename)?;
+    let pagesize = window_size()?;
 
     let mut buf = BufReader::new(file);
     let mut eof = false;
@@ -37,29 +48,17 @@ fn main() -> io::Result<()> {
     let mut args = std::env::args().skip(1);
     let filename = args.next().expect("Missing file arg");
 
-    // C library calls
-    let pagesize: u16;
-    let mut save: libc::termios;
-
     let mut term = Termios::from_fd(libc::STDIN_FILENO)?;
-    tcgetattr(&term);
-    let mut save = Termios {..term};
+    let mut save = term.clone();
     term.c_lflag &= !(ICANON | ECHO);
-    tcset
+    tcsetattr(libc::STDIN_FILENO, TCSANOW, &mut term)?;
 
-    unsafe {
-        save = mem::zeroed();
-        libc::tcgetattr(, &mut save);
-
-        libc::tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, &term);
-
-        let winsz: libc::winsize = mem::zeroed();
-        libc::ioctl(libc::STDOUT_FILENO, libc::TIOCGWINSZ, &winsz);
-        pagesize = winsz.ws_row;
+    if let Err(err) = pagefile(&filename) {
+        // Always reset the terminal
+        tcsetattr(libc::STDIN_FILENO, TCSANOW, &mut save)?;
+        return Err(err)
     }
-    defer!(unsafe { libc::tcsetattr(libc::STDIN_FILENO, libc::TCSAFLUSH, &save); });
 
-    pagefile(&filename, pagesize)?;
-
+    tcsetattr(libc::STDIN_FILENO, TCSANOW, &mut save)?;
     Ok(())
 }
