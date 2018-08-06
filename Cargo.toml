@@ -5,7 +5,6 @@ version = "0.0.0"
 [dependencies]
 libc = "*"
 termios = "*"
-scopeguard = "*"
 
 [[bin]]
 name = "page"
