@@ -10,12 +10,12 @@ struct Find<'a> {
     dirs: VecDeque<PathBuf>,
 }
 impl<'a> Find<'a> {
-    fn new(query: &'a OsStr, start: &'a OsStr) -> Find<'a> {
-        Find {
+    fn new(query: &'a OsStr, start: &'a OsStr) -> io::Result<Find<'a>> {
+        Ok(Find {
             query: query,
-            readdir: fs::read_dir(Path::new(start)).unwrap(),
+            readdir: fs::read_dir(Path::new(start))?,
             dirs: VecDeque::new(),
-        }
+        })
     }
 }
 impl<'a> Iterator for Find<'a> {
@@ -25,16 +25,23 @@ impl<'a> Iterator for Find<'a> {
             let dirs = &mut self.dirs;
             let query = &self.query;
             self.readdir.find(|entry| {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
-                    if path.is_dir() {
-                        dirs.push_back(path.clone());
-                    }
-                    if let Some(name) = path.file_name() {
-                        return *query == name;
+                match entry {
+                    Ok(entry) => {
+                        let path = entry.path();
+                        if path.is_dir() {
+                            dirs.push_back(path.clone());
+                        }
+                        if let Some(name) = path.file_name() {
+                            *query == name
+                        } else {
+                            false
+                        }
+                    },
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        false
                     }
                 }
-                return false;
             })
         };
         if let None = m {
@@ -47,7 +54,7 @@ impl<'a> Iterator for Find<'a> {
     }
 }
 
-fn find<'a>(query: &'a OsStr, start: &'a OsStr) -> Find<'a> {
+fn find<'a>(query: &'a OsStr, start: &'a OsStr) -> io::Result<Find<'a>> {
     Find::new(query, start)
 }
 
@@ -56,7 +63,7 @@ fn main() -> io::Result<()> {
     let query = args.next().map(OsString::from).unwrap();
     let start = args.next().map(OsString::from).unwrap_or(OsString::from("."));
 
-    for entry in find(&query, &start) {
+    for entry in find(&query, &start)? {
         if let Some(result) = entry?.path().to_str() {
             println!("{}", result);
         }
