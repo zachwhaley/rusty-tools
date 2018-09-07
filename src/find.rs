@@ -6,39 +6,44 @@ use std::path::{Path, PathBuf};
 
 struct Find<'a> {
     query: &'a OsStr,
-    start: &'a OsStr,
-    readdir: io::Result<ReadDir>,
+    readdir: ReadDir,
     dirs: VecDeque<PathBuf>,
 }
 impl<'a> Find<'a> {
     fn new(query: &'a OsStr, start: &'a OsStr) -> Find<'a> {
         Find {
             query: query,
-            start: start,
-            readdir: fs::read_dir(Path::new(start)),
+            readdir: fs::read_dir(Path::new(start)).unwrap(),
             dirs: VecDeque::new(),
         }
     }
 }
 impl<'a> Iterator for Find<'a> {
-    type Item = io::Result<DirEntry>
+    type Item = io::Result<DirEntry>;
     fn next(&mut self) -> Option<Self::Item> {
-        let dirs = &self.dirs;
-        let query = &self.query;
-        let mut readdir = self.readdir.unwrap();
-
-        readdir.find(|entry| {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.is_dir() {
-                    dirs.push_back(path.clone());
+        let m = {
+            let dirs = &mut self.dirs;
+            let query = &self.query;
+            self.readdir.find(|entry| {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        dirs.push_back(path.clone());
+                    }
+                    if let Some(name) = path.file_name() {
+                        return *query == name;
+                    }
                 }
-                if let Some(name) = path.file_name() {
-                    return *query == name;
-                }
+                return false;
+            })
+        };
+        if let None = m {
+            if let Some(dir) = self.dirs.pop_front() {
+                self.readdir = fs::read_dir(dir).unwrap();
+                return self.next();
             }
-            return false;
-        })
+        }
+        return m;
     }
 }
 
